@@ -20,7 +20,7 @@ public:
 	// Parameters 
 	// --------------------------------
 	// Set which cars to track with UKF
-	std::vector<bool> trackCars = {true,true,true};
+	std::vector<bool> trackCars = {true, false, false};
 	// Visualize sensor measurements
 	bool visualize_lidar = true;
 	bool visualize_radar = true;
@@ -189,4 +189,11 @@ public:
 		
 	}
 	
+	void endHighway() {
+		for (int i = 0; i < traffic.size(); i++) {
+			if(trackCars[i]) {
+				traffic.at(i).ukf.CheckNIS();
+			}
+		}
+	}
 };

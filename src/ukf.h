@@ -3,6 +3,7 @@
 
 #include "Eigen/Dense"
 #include "measurement_package.h"
+#include <vector>
 
 class UKF {
  public:
@@ -61,7 +62,7 @@ class UKF {
   Eigen::MatrixXd Xsig_pred_;
 
   // time when the state is true, in us
-  long long time_us_;
+  long long time_us_{0};
 
   // Process noise standard deviation longitudinal acceleration in m/s^2
   double std_a_;
@@ -95,6 +96,11 @@ class UKF {
 
   // Sigma point spreading parameter
   double lambda_;
+
+  std::vector<double> nis_radar_{};
+  std::vector<double> nis_laser_{};
+
+  void CheckNIS() const;
 };
 
 #endif  // UKF_H

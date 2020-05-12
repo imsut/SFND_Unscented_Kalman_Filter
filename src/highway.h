@@ -20,7 +20,7 @@ public:
 	// Parameters 
 	// --------------------------------
 	// Set which cars to track with UKF
-	std::vector<bool> trackCars = {true, false, false};
+	std::vector<bool> trackCars = {true, true, true};
 	// Visualize sensor measurements
 	bool visualize_lidar = true;
 	bool visualize_radar = true;
@@ -190,10 +190,32 @@ public:
 	}
 	
 	void endHighway() {
+		int radar_nis_above_threshold = 0;
+		int radar_nis_count = 0;
+		int laser_nis_above_threshold = 0;		
+		int laser_nis_count = 0;
 		for (int i = 0; i < traffic.size(); i++) {
-			if(trackCars[i]) {
-				traffic.at(i).ukf.CheckNIS();
-			}
+			if (trackCars[i]) {
+			  for (const auto nis : traffic.at(i).ukf.RadarNis()) {
+    			if (nis > 7.815) {
+      				radar_nis_above_threshold ++;
+    			}
+			  }
+			  radar_nis_count += traffic.at(i).ukf.RadarNis().size();
+			  for (const auto nis : traffic.at(i).ukf.LaserNis()) {
+    			if (nis > 5.991) {
+      				laser_nis_above_threshold ++;
+    			}
+			  }
+			  laser_nis_count += traffic.at(i).ukf.LaserNis().size();
+  			}
 		}
+
+		std::cout << "Radar NIS > threshold: "
+    		<< 100.0 * radar_nis_above_threshold / radar_nis_count << "%" << std::endl;
+
+		std::cout << "Laser NIS > threshold: "
+    		<< 100.0 * laser_nis_above_threshold / laser_nis_count << "%" << std::endl;
+
 	}
 };

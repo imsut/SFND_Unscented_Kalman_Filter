@@ -14,13 +14,13 @@ static double NormalizeAngle(double rad) {
 
 static VectorXd Predict(VectorXd state, double delta_t) {
     // extract values for better readability
-    double p_x = state(0);
-    double p_y = state(1);
-    double v = state(2);
-    double yaw = state(3);
-    double yawd = state(4);
-    double nu_a = state(5);
-    double nu_yawdd = state(6);
+    const double p_x = state(0);
+    const double p_y = state(1);
+    const double v = state(2);
+    const double yaw = state(3);
+    const double yawd = state(4);
+    const double nu_a = state(5);
+    const double nu_yawdd = state(6);
 
     // predicted state values
     double px_p, py_p;
@@ -77,6 +77,8 @@ UKF::UKF() {
 
   // initial covariance matrix
   P_ = MatrixXd::Identity(n_x_, n_x_);
+  P_(0, 0) = std_laspx_ * std_laspx_;
+  P_(1, 1) = std_laspy_ * std_laspy_;
 
   Xsig_pred_ = MatrixXd(n_x_, 1 + 2 * n_aug_);
   Xsig_pred_.fill(0.0);
@@ -84,7 +86,7 @@ UKF::UKF() {
   // Process noise standard deviation longitudinal acceleration in m/s^2
   char* env_std_a = std::getenv("UKF_STD_A");
   if (env_std_a == nullptr) {
-    std_a_ = 0.3;
+    std_a_ = 1.0;
   } else {
     std_a_ = std::stod(env_std_a);
   }
@@ -92,7 +94,7 @@ UKF::UKF() {
   // Process noise standard deviation yaw acceleration in rad/s^2
   char* env_std_yawdd = std::getenv("UKF_STD_YAWDD");
   if (env_std_yawdd == nullptr) {
-    std_yawdd_ = 0.2;
+    std_yawdd_ = 0.3;
   } else {
     std_yawdd_ = std::stod(env_std_yawdd);
   }
@@ -134,32 +136,19 @@ UKF::UKF() {
   for (int i = 1; i < 2 * n_aug_ + 1; ++i) {  // 2n+1 weights
     weights_(i) = 0.5 / (n_aug_ + lambda_);
   }
+
+  radar_R_  = MatrixXd(3, 3);
+  radar_R_ <<  std_radr_ * std_radr_, 0, 0,
+               0, std_radphi_ * std_radphi_, 0,
+               0, 0, std_radrd_ * std_radrd_ ;
+
+
+  laser_R_ = MatrixXd(2, 2);
+  laser_R_ << std_laspx_ * std_laspx_, 0,
+              0, std_laspy_ * std_laspy_;
 }
 
 UKF::~UKF() {}
-
-void UKF::CheckNIS() const  {
-  std::cout << "std_a_ = " << std_a_ << ", std_yawdd_ = " << std_yawdd_ << std::endl;
-  int above_threshold = 0;
-  for (const auto nis : nis_radar_) {
-    if (nis > 7.815) {
-      above_threshold ++;
-    }
-  }
-  std::cout << "Radar NIS > threshold: "
-    << static_cast<double>(above_threshold) / static_cast<double>(nis_radar_.size()) << "% ("
-    << above_threshold << " times out of " << nis_radar_.size() << ")" << std::endl;
-
-  above_threshold = 0;
-  for (const auto nis : nis_laser_) {
-    if (nis > 5.991) {
-      above_threshold ++;
-    }
-  }
-  std::cout << "Laser NIS > threshold: "
-    << static_cast<double>(above_threshold) / static_cast<double>(nis_laser_.size()) << "% ("
-    << above_threshold << " times out of " << nis_laser_.size() << ")" << std::endl;
-}
 
 void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
   /**
@@ -291,10 +280,7 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
   }
 
   // add measurement noise covariance matrix
-  MatrixXd R(n_z, n_z);
-  R <<  std_laspx_ * std_laspx_, 0,
-        0, std_laspy_ * std_laspy_;
-  S += R;
+  S += laser_R_;
 
   // create matrix for cross correlation Tc
   MatrixXd Tc = MatrixXd(n_x_, n_z);
@@ -375,11 +361,7 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
   }
 
   // add measurement noise covariance matrix
-  MatrixXd R(n_z, n_z);
-  R <<  std_radr_ * std_radr_, 0, 0,
-        0, std_radphi_ * std_radphi_, 0,
-        0, 0, std_radrd_ * std_radrd_ ;
-  S += R;
+  S += radar_R_;
 
   // create matrix for cross correlation Tc
   MatrixXd Tc = MatrixXd(n_x_, n_z);

@@ -100,7 +100,11 @@ class UKF {
   std::vector<double> nis_radar_{};
   std::vector<double> nis_laser_{};
 
-  void CheckNIS() const;
+  std::vector<double> RadarNis() const { return nis_radar_; }
+  std::vector<double> LaserNis() const { return nis_laser_; }
+
+  MatrixXd radar_R_;
+  MatrixXd laser_R_;
 };
 
 #endif  // UKF_H

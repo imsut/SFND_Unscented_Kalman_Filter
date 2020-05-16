@@ -146,6 +146,10 @@ UKF::UKF() {
   laser_R_ = MatrixXd(2, 2);
   laser_R_ << std_laspx_ * std_laspx_, 0,
               0, std_laspy_ * std_laspy_;
+
+  laser_H_ = MatrixXd(2, n_x_);
+  laser_H_ << 1, 0, 0, 0, 0,
+              0, 1, 0, 0, 0;
 }
 
 UKF::~UKF() {}
@@ -246,69 +250,26 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
    * You can also calculate the lidar NIS, if desired.
    */
   int n_z = 2;
-  MatrixXd Zsig(n_z, 2 * n_aug_ + 1);
-
-  // transform sigma points into measurement space
-  for (int i = 0; i < 2 * n_aug_ + 1; ++i) {  // 2n+1 simga points
-    // extract values for better readability
-    double p_x = Xsig_pred_(0,i);
-    double p_y = Xsig_pred_(1,i);
-
-    // measurement model
-    Zsig(0, i) = p_x;
-    Zsig(1, i) = p_y;
-  }
 
   // mean predicted measurement
   VectorXd z_pred = VectorXd(n_z);
-  
-  // measurement covariance matrix S
-  MatrixXd S = MatrixXd(n_z, n_z);
+  z_pred = x_.head(n_z);
 
-  // mean predicted measurement
-  z_pred.fill(0.0);
-  for (int i = 0; i < 2 * n_aug_ + 1; ++i) {
-    z_pred += weights_(i) * Zsig.col(i);
-  }
+  VectorXd y = meas_package.raw_measurements_ - z_pred;
 
-  // innovation covariance matrix S
-  S.fill(0.0);
-  for (int i = 0; i < 2 * n_aug_ + 1; ++i) {  // 2n+1 simga points
-    // residual
-    VectorXd z_diff = Zsig.col(i) - z_pred;
-    S += weights_(i) * z_diff * z_diff.transpose();
-  }
-
-  // add measurement noise covariance matrix
-  S += laser_R_;
-
-  // create matrix for cross correlation Tc
-  MatrixXd Tc = MatrixXd(n_x_, n_z);
-
-  // calculate cross correlation matrix
-  Tc.fill(0.0);
-  for (int i = 0; i < 2 * n_aug_ + 1; ++i) {  // 2n+1 simga points
-    // residual
-    VectorXd z_diff = Zsig.col(i) - z_pred;
-
-    // state difference
-    VectorXd x_diff = Xsig_pred_.col(i) - x_;
-
-    Tc += weights_(i) * x_diff * z_diff.transpose();
-  }
-
-  // Kalman gain K;
-  MatrixXd K = Tc * S.inverse();
-
-  // residual
-  VectorXd z_diff = meas_package.raw_measurements_ - z_pred;
-
-  MatrixXd nis = z_diff.transpose() * S.inverse() * z_diff;
-  nis_laser_.push_back(nis(0, 0));
-
+  MatrixXd Ht = laser_H_.transpose();
+  MatrixXd S = laser_H_ * P_ * Ht + laser_R_;
+  MatrixXd Si = S.inverse();
+  MatrixXd PHt = P_ * Ht;
+  MatrixXd K = PHt * Si;
+    
   // update state mean and covariance matrix
-  x_ += K * z_diff;
-  P_ -= K * S * K.transpose();
+  x_ += K * y;
+  MatrixXd I = MatrixXd::Identity(n_x_, n_x_);
+  P_ = (I - K * laser_H_) * P_;
+
+  MatrixXd nis = y.transpose() * S.inverse() * y;
+  nis_laser_.push_back(nis(0, 0));
 }
 
 void UKF::UpdateRadar(MeasurementPackage meas_package) {

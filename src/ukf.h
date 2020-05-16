@@ -103,8 +103,9 @@ class UKF {
   std::vector<double> RadarNis() const { return nis_radar_; }
   std::vector<double> LaserNis() const { return nis_laser_; }
 
-  MatrixXd radar_R_;
-  MatrixXd laser_R_;
+  Eigen::MatrixXd radar_R_;
+  Eigen::MatrixXd laser_R_;
+  Eigen::MatrixXd laser_H_;
 };
 
 #endif  // UKF_H
